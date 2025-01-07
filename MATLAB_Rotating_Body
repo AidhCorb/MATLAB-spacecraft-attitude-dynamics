@@ -1,0 +1,199 @@
+clear;
+clc;
+clear all;
+close all;
+
+global g n h mc mhs m ws0;
+
+time = 30;
+timesteps = 300;
+wp0 = 0;
+wn0 = 0;
+ws0 = 100*pi;
+phi0 = deg2rad(0);
+theta0 = deg2rad(1);
+psi0 = deg2rad(0);
+
+g = 9.81; %m/s^2
+
+%Top Properties
+n = deg2rad(10); %eta angle
+h = 6; %height
+mc = 10; %mass of cone
+mhs = 1; %mass of half sphere
+m = mc+mhs;
+
+
+%A with respect to center of mass...
+a = (h^2)*(((3/5)*mc)+((3/20)*mc*(sin(n))^2)+(mc*((((2*sin(n))+(3*(sin(n))^2))^2)/(16*((2*sin(n)+1)^2))))+((83/320)*mhs*(sin(n))^2)+(mhs*(((((3*sin(n))+2)^2))/(64*((2*sin(n)+1)^2)))));
+
+%B with respect to center of mass...
+b = (((h^2)*(sin(n))^2)/(10))*(3*mc + 2*mhs);
+
+%centroid of top
+l = h*((3+(8*sin(n))+(3*(sin(n))^2))/(4*(2*sin(n)+1)));
+
+%Inertial tensor of body frame WRT e1,e2,e3
+I_0 = [a+m*(l^2),0,0;0,a+m*(l^2),0;0,0,b];
+A = I_0(1,1);
+B = I_0(3,3);
+
+
+
+%Initial Conds for ODE45
+y0 = [wp0,wn0,ws0,phi0,theta0,psi0];
+tspan = linspace(0,time,timesteps);
+
+tol = 1e-13;
+options = odeset('RelTol',tol,'AbsTol',tol);
+
+[t,x] = ode45(@EOM, tspan, y0,options);
+
+
+figure(1);
+tiledlayout(1,2)
+nexttile
+plot(t,x(:,1:2),t,x(:,3)/10);
+legend('wp','wn','ws/10');
+title('Angular Velocities v.s. time')
+xlabel('time (s)')
+ylabel('Angular Velocity (rad/s)')
+nexttile
+plot(t,x(:,4:5),t,x(:,6)/100);
+legend('phi','theta','psi/100');
+title('Euler Angles v.s. time')
+xlabel('time (s)')
+ylabel('Angle (rad)')
+
+w1 = x(:,2);
+w2 = x(:,1).*sin(x(:,5));
+w3 = x(:,1).*cos(x(:,5))+x(:,3);
+
+
+%figure(2);
+%plot(t,w1,t,w2,t,w3/100);
+%legend('w1','w2','w3/100');
+
+
+%Create Plot
+figure(3);
+ax=axes;
+plot3(ax,0,0,0);
+hold on;
+xlim([-1.5,1.5]);
+ylim([-1.5,1.5]);
+zlim([-1.5,1.5]);
+for i=1:length(t)
+    if(x(i,5) <= deg2rad(90)-n)
+        cla(ax);
+
+        R1=[cos(x(i,4)),-sin(x(i,4)),0;
+            sin(x(i,4)),cos(x(i,4)),0;
+            0,0,1];
+        R2=[1,0,0;
+            0,cos(x(i,5)),-sin(x(i,5));
+            0,sin(x(i,5)),cos(x(i,5))];
+        R3=[cos(x(i,6)),-sin(x(i,6)),0;
+            sin(x(i,6)),cos(x(i,6)),0;
+            0,0,1];
+
+        R=R1*R2;
+
+        e1 = [1;0;0];
+        e2 = [0;1;0];
+        e3 = [0;0;1];
+
+        %Plot e frame with origin as e frame
+        quiver3(ax,0,0,0,e1(1),e1(2),e1(3),'k','LineWidth',2);
+        text(ax,e1(1),e1(2),e1(3),'e_1','Color','k');
+
+        quiver3(ax,0,0,0,e2(1),e2(2),e2(3),'k','LineWidth',2);
+        text(ax,e2(1),e2(2),e2(3),'e_2','Color','k');
+
+        quiver3(ax,0,0,0,e3(1),e3(2),e3(3),'k','LineWidth',2);
+        text(ax,e3(1),e3(2),e3(3),'e_3','Color','k');
+
+        b1 = R*[1;0;0];
+        b2 = R*[0;1;0];
+        b3 = R*[0;0;1];
+
+        %Plot body frame with origin as e frame
+        quiver3(ax,0,0,0,b1(1),b1(2),b1(3),'r','LineWidth',2);
+        text(ax,b1(1),b1(2),b1(3),'b_1','Color','r');
+
+        quiver3(ax,0,0,0,b2(1),b2(2),b2(3),'g','LineWidth',2);
+        text(ax,b2(1),b2(2),b2(3),'b_2','Color','g');
+
+        quiver3(ax,0,0,0,b3(1),b3(2),b3(3),'b','LineWidth',2);
+        text(ax,b3(1),b3(2),b3(3),'b_3','Color','b');
+        pause(time/(timesteps));
+    else
+        hold off
+        figure;
+        plot(t(1:i),w1(1:i),t(1:i),w2(1:i),t(1:i),w3(1:i)/100);
+        legend('w1','w2','w3/100','FontSize',18);
+        title('Angular Velocities v.s. Time','FontSize',18)
+        xlabel('time (s)','FontSize',18)
+ylabel('Angular Velocity (rad/s)','FontSize',18)
+
+        figure;
+        tiledlayout(1,2)
+        title('Corrected Graphs for Time Period of Top in Motion')
+        nexttile
+        plot(t(1:i),x(1:i,1:2),t(1:i),x(1:i,3)/10);
+        legend('wp','wn','ws/10','FontSize',18);
+        title('Angular Velocities v.s. time','FontSize',18)
+xlabel('time (s)','FontSize',18)
+ylabel('Angular Velocity (rad/s)','FontSize',18)
+        nexttile
+        plot(t(1:i),x(1:i,4:5),t(1:i),x(1:i,6)/100);
+        legend('phi','theta','psi/100','FontSize',18)
+        title('Euler Angles v.s. time','FontSize',18)
+xlabel('time (s)','FontSize',18)
+ylabel('Angle (rad)','FontSize',18)
+        break;
+    end
+end
+
+close Figure 1
+
+function dxdt = EOM(t,w)
+global g n h mc mhs m ws0;
+
+%A with respect to center of mass...
+a = (h^2)*(((3/5)*mc)+((3/20)*mc*(sin(n))^2)+(mc*((((2*sin(n))+(3*(sin(n))^2))^2)/(16*((2*sin(n)+1)^2))))+((83/320)*mhs*(sin(n))^2)+(mhs*(((((3*sin(n))+2)^2))/(64*((2*sin(n)+1)^2)))));
+
+%B with respect to center of mass...
+b = (((h^2)*(sin(n))^2)/(10))*(3*mc + 2*mhs);
+
+%centroid of top
+l = h*((3+(8*sin(n))+(3*(sin(n))^2))/(4*(2*sin(n)+1)));
+
+%Inertial tensor of body frame WRT e1,e2,e3
+I_0 = [a+m*(l^2),0,0;0,a+m*(l^2),0;0,0,b];
+A = I_0(1,1);
+B = I_0(3,3);
+
+%OMEGA = omega
+% dxdt(1) = ((2*A-B)*w(1)*w(2)*cos(w(5))+(A-B)*w(2)*w(3))/(-A*sin(w(5)));
+% dxdt(2) = ((B-A)*((w(1)^2)*cos(w(5))*sin(w(5))+w(1)*w(3)*sin(w(5)))-m*g*l*sin(w(5)))/(-A);
+% dxdt(3) = w(1)*w(2)*sin(w(5))-dxdt(1)*cos(w(5))-(((log(10)-log(9))*w(3)*9^(t/5))/(5*10^(t/5)));    %ws
+
+
+%OMEGA != omega
+dxdt(1) = ((2*A-B)*(w(1)*w(2)*cos(w(5)))-B*w(2)*w(3))/(-A*sin(w(5)));
+dxdt(2) = ((B-A)*((w(1)^2)*sin(w(5))*cos(w(5)))+B*w(1)*w(3)*sin(w(5))-m*g*l*sin(w(5)))/(-A);
+dxdt(3) = w(1)*w(2)*sin(w(5))-dxdt(1)*cos(w(5)) -((log(10)-log(9))*ws0*9^(t/5))/(5*10^(t/5));
+
+
+% FROM BOOK
+% dxdt(2) = ((B-A)*((w(1)^2)*sin(w(5))*cos(w(5)))+B*w(1)*w(3)*sin(w(5))-m*g*l*sin(w(5)))/(-A);
+% dxdt(1) = (B*w(2)*w(3)-(A-B)*w(1)*w(2)*cos(w(5)))/(A*sin(w(5))+A*dxdt(2)*cos(w(5)));
+% dxdt(3) = dxdt(1)*dxdt(2)*sin(w(5))-dxdt(1)*cos(w(5));
+
+dxdt(4) = w(1);     %phi
+dxdt(5) = w(2);     %theta
+dxdt(6) = w(3);    %psi
+dxdt=dxdt';
+end
+%-((log(10)-log(9))*w(3)*9^(t/5))/(5*10^(t/5));
